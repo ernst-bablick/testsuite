@@ -229,7 +229,7 @@ proc compile_host_list {{binaries_only 0}} {
 proc get_compile_options_string { } {
    global ts_config
 
-   set options $ts_config(aimk_compile_options)
+   set options $ts_config(compile_options)
 
    if {$options == "none"} {
       set options ""
@@ -406,13 +406,13 @@ proc compile_depend { compile_hosts a_report do_clean } {
    
    # clean dependency files (zerodepend) for Univa extensions
 
-   if {$ts_config(uge_ext_dir) != "none"} {
+   if {$ts_config(ext_source_dir) != "none"} {
    
       set task_nr [report_create_task report "zerodepend_uge_extensions" $depend_host_name]
 
       report_task_add_message report $task_nr "------------------------------------------"
       report_task_add_message report $task_nr "-> starting scripts/zerodepend on host $depend_host_name for Univa extensions..."
-      set output [start_remote_prog $depend_host_name $CHECK_USER "scripts/zerodepend" "" prg_exit_state 60 0 $ts_config(uge_ext_dir) "" 1 0]
+      set output [start_remote_prog $depend_host_name $CHECK_USER "scripts/zerodepend" "" prg_exit_state 60 0 $ts_config(ext_source_dir) "" 1 0]
       report_task_add_message report $task_nr "------------------------------------------"
       report_task_add_message report $task_nr "return state: $prg_exit_state"
       report_task_add_message report $task_nr "------------------------------------------"
@@ -878,7 +878,7 @@ proc compile_source_aimk {do_only_hooks compile_hosts report_var {compile_only 0
             set java_doc_build_host [host_conf_get_java_compile_host]
             # skip this step if there is no java build host configured or if
             # "-no-java" is specified in the aimk options
-            set options $ts_config(aimk_compile_options)
+            set options $ts_config(compile_options)
             if {[lsearch $compile_hosts $java_doc_build_host] >= 0 &&
                 [string first "-no-java" $options] == -1} {
                if {[compile_with_aimk $java_doc_build_host report "java_doc" "-javadoc"] != 0} {
@@ -1224,7 +1224,6 @@ proc compile_source_cmake {do_only_hooks compile_hosts report_var {compile_only 
    global check_do_clean_compile check_do_3rdparty_build
    global CMAKE_BUILD_ID
    global CMAKE_COMPILE_INSTALL_SEPARATELY
-   global WITH_GPERF
 
    upvar $report_var report
 
@@ -1269,20 +1268,25 @@ proc compile_source_cmake {do_only_hooks compile_hosts report_var {compile_only 
          set args "-S $source_dir"
          append args " -DCMAKE_INSTALL_PREFIX=$ts_config(product_root)"
 
+         # use gmake instead of make on sol-amd64
          if {[resolve_arch $host] == "sol-amd64"} {
             append args " -DCMAKE_MAKE_PROGRAM=gmake"
          }
 
-         if {$ts_config(uge_ext_dir) != "none"} {
-            append args " -DPROJECT_EXTENSIONS=$ts_config(uge_ext_dir)"
+         # enable extensions if extensions are available
+         if {$ts_config(ext_source_dir) != "none"} {
+            append args " -DPROJECT_EXTENSIONS=$ts_config(ext_source_dir)"
             append args " -DPROJECT_FEATURES=\"gcs-extensions\""
          }
 
+         # handle common files only on the preferred host
          if {$host == $preferred_host} {
             append args " -DINSTALL_SGE_COMMON=ON"
          } else {
             append args " -DINSTALL_SGE_COMMON=OFF"
          }
+
+         # make binaries and tests on compile hosts
          if {[host_conf_is_compile_host $host]} {
             append args " -DINSTALL_SGE_BIN=ON"
             append args " -DINSTALL_SGE_TEST=ON"
@@ -1290,17 +1294,21 @@ proc compile_source_cmake {do_only_hooks compile_hosts report_var {compile_only 
             append args " -DINSTALL_SGE_BIN=OFF"
             append args " -DINSTALL_SGE_TEST=OFF"
          }
-         if {$WITH_GPERF} {
-            append args " -DWITH_GPERF=ON"
-         } else {
-            append args " -DWITH_GPERF=OFF"
-         }
+
          # compile docs only on the doc compile host and not when just replacing binaries (menu 1t)
          if {[host_conf_is_doc_compile_host $host] && !$compile_only} {
             append args " -DINSTALL_SGE_DOC=ON"
          } else {
             append args " -DINSTALL_SGE_DOC=OFF"
          }
+
+         # add compile options from the cinfiguration
+         set compile_options [get_compile_options_string]
+         if {$compile_options != "none"} {
+            append args " $compile_options"
+         }
+
+         # add build type and build id
          append args " -DCMAKE_BUILD_TYPE=$CHECK_CMAKE_BUILD_TYPE -DCMAKE_BUILD_ID=$CMAKE_BUILD_ID -Wno-dev"
          set options($host,args) $args
          set options($host,dir) [compile_source_cmake_get_build_dir $host]
@@ -2385,7 +2393,7 @@ proc build_distribution {arch_list report_var} {
    }
 
    # derive mk_dist's product mode from the extensions directory
-   if {$ts_config(uge_ext_dir) == "none"} {
+   if {$ts_config(ext_source_dir) == "none"} {
       append args " -product ocs"
    } else {
       append args " -product gcs"

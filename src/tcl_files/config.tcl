@@ -2317,27 +2317,7 @@ proc config_source_dir { only_check name config_array } {
    return $value
 }
 
-#****** config/config_uge_ext_dir() *********************************************
-#  NAME
-#     config_uge_ext_dir() -- source directory setup for HPC-Gridware Extensions
-#
-#  SYNOPSIS
-#     config_uge_ext_dir { only_check name config_array } 
-#
-#  FUNCTION
-#     Testsuite configuration setup - called from verify_config()
-#
-#  INPUTS
-#     only_check   - 0: expect user input
-#                    1: just verify user input
-#     name         - option name (in ts_config array)
-#     config_array - config array name (ts_config)
-#
-#  SEE ALSO
-#     check/setup2()
-#     check/verify_config()
-#*******************************************************************************
-proc config_uge_ext_dir { only_check name config_array } {
+proc config_ext_source_dir {only_check name config_array} {
    global fast_setup
 
    upvar $config_array config
@@ -2354,13 +2334,15 @@ proc config_uge_ext_dir { only_check name config_array } {
 
    set value [config_generic $only_check $name config $help_text "directory" 1]
 
-   if { $value == -1 } { return -1 }
+   if {$value == -1} {
+      return -1
+   }
 
    if {$value == "none"} {
       ts_log_fine "no HPC-Gridware extensions dir specified - running without the extensions"
    } 
  
-   if { $old_value != $value } {
+   if {$old_value != $value} {
       set config($name) $value
    }
 
@@ -3136,12 +3118,12 @@ proc config_product_feature { only_check name config_array } {
    return $value
 }
 
-#****** config/config_aimk_compile_options() ***********************************
+#****** config/config_compile_options() ***********************************
 #  NAME
-#     config_aimk_compile_options() -- aimk compile option setup
+#     config_compile_options() -- aimk compile option setup
 #
 #  SYNOPSIS
-#     config_aimk_compile_options { only_check name config_array } 
+#     config_compile_options { only_check name config_array }
 #
 #  FUNCTION
 #     Testsuite configuration setup - called from verify_config()
@@ -3156,11 +3138,25 @@ proc config_product_feature { only_check name config_array } {
 #     check/setup2()
 #     check/verify_config()
 #*******************************************************************************
+proc config_compile_options { only_check name config_array } {
+
+   upvar $config_array config
+
+   set help_text {
+      "Enter cmake or aimk compile options (use \"none\" for no options)"
+      "or press >RETURN< to use the default value."
+      ""
+      "-DWITH_GPERF=ON   Enabled compilation with Google Performance Tools"
+      "-DWITH_PYTHON=ON  Enabled compilation with Python"
+   }
+   return [config_generic $only_check $name config $help_text "string" 1 0]
+}
+
 proc config_aimk_compile_options { only_check name config_array } {
 
    upvar $config_array config
 
-   set help_text { "Enter aimk compile options (use \"none\" for no options)"
+   set help_text { "Enter cmake or aimk compile options (use \"none\" for no options)"
                 "or press >RETURN< to use the default value." }
    return [config_generic $only_check $name config $help_text "string" 1 0]
 }
@@ -4441,7 +4437,7 @@ proc config_build_ts_config {} {
 
    set parameter "aimk_compile_options"
    set ts_config($parameter)            ""
-   set ts_config($parameter,desc)       "Aimk compile options"
+   set ts_config($parameter,desc)       "Compile options"
    set ts_config($parameter,default)    "none"
    set ts_config($parameter,setup_func) "config_$parameter"
    set ts_config($parameter,onchange)   "compile"
@@ -5319,12 +5315,54 @@ proc config_build_ts_config_1_24 {} {
    set ts_config(version) "1.24"
 }
 
+proc config_build_ts_config_1_25 {} {
+   global ts_config
+
+   # aimk options will be replaced by cmake options
+   set value "-DWITH_GPERF=OFF -DWITH_PYTHON=OFF"
+
+   # replace the aimk_compile_options by compile_options. pos will be the same.
+   set ts_config(compile_options) $value
+   set ts_config(compile_options,desc) "cmake (or aimk) options"
+   set ts_config(compile_options,default) "none"
+   set ts_config(compile_options,setup_func) config_compile_options
+   set ts_config(compile_options,onchange) $ts_config(aimk_compile_options,onchange)
+   set ts_config(compile_options,pos) $ts_config(aimk_compile_options,pos)
+
+   # replace the uge_ext_dir by ext_source_dir. pos will be the same.
+   set ts_config(ext_source_dir) $ts_config(uge_ext_dir)
+   set ts_config(ext_source_dir,desc) "Path to HPC-Gridware extensions source directory"
+   set ts_config(ext_source_dir,default) "../gcs-extensions"
+   set ts_config(ext_source_dir,setup_func) config_ext_source_dir
+   set ts_config(ext_source_dir,onchange) $ts_config(uge_ext_dir,onchange)
+   set ts_config(ext_source_dir,pos) $ts_config(uge_ext_dir,pos)
+
+   # remove the old aimk_compile_options
+   unset ts_config(aimk_compile_options)
+   unset ts_config(aimk_compile_options,desc)
+   unset ts_config(aimk_compile_options,default)
+   unset ts_config(aimk_compile_options,setup_func)
+   unset ts_config(aimk_compile_options,onchange)
+   unset ts_config(aimk_compile_options,pos)
+
+   # remove the old uge_ext_dir
+   unset ts_config(uge_ext_dir)
+   unset ts_config(uge_ext_dir,desc)
+   unset ts_config(uge_ext_dir,default)
+   unset ts_config(uge_ext_dir,setup_func)
+   unset ts_config(uge_ext_dir,onchange)
+   unset ts_config(uge_ext_dir,pos)
+
+   # now we have a configuration version 1.25
+   set ts_config(version) "1.25"
+}
+
 ################################################################################
 #  MAIN                                                                        #
 ################################################################################
 
 global actual_ts_config_version      ;# actual config version number
-set actual_ts_config_version "1.24"
+set actual_ts_config_version "1.25"
 
 # first source of config.tcl: create ts_config
 if {![info exists ts_config]} {
@@ -5354,6 +5392,7 @@ if {![info exists ts_config]} {
    config_build_ts_config_1_22
    config_build_ts_config_1_23
    config_build_ts_config_1_24
+   config_build_ts_config_1_25
 }
 
 ###

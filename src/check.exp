@@ -493,9 +493,6 @@ set CHECK_OUTPUT stdout
 global CHECK_TESTSUITE_TRASH
 set CHECK_TESTSUITE_TRASH 0
 
-global WITH_GPERF
-set WITH_GPERF 0
-
 global CHECK_INTERACTIVE_TRANSPORT
 set CHECK_INTERACTIVE_TRANSPORT "default"
 
@@ -972,7 +969,7 @@ proc get_supported_config_parameter_list {} {
    lappend clone_argument_list "spooling_method"
    lappend clone_argument_list "bdb_dir"
    lappend clone_argument_list "l10n_test_locale"
-   lappend clone_argument_list "aimk_compile_options"
+   lappend clone_argument_list "compile_options"
    lappend clone_argument_list "dist_install_options"
    lappend clone_argument_list "qmaster_install_options"
    lappend clone_argument_list "execd_install_options"
@@ -2451,6 +2448,14 @@ proc update_ts_config_version {} {
    if {[string compare $ts_config(version) "1.23"] == 0} {
       puts "\ntestsuite configuration update from 1.23 to 1.24 ..."
       config_build_ts_config_1_24
+      show_config ts_config
+      wait_for_enter
+      return 0
+   }
+
+   if {[string compare $ts_config(version) "1.24"] == 0} {
+      puts "\ntestsuite configuration update from 1.24 to 1.25 ..."
+      config_build_ts_config_1_25
       show_config ts_config
       wait_for_enter
       return 0
@@ -7305,7 +7310,6 @@ proc operate_add_cluster {filename operation {atimeout 120} {execute_func ""} {e
    global check_use_installed_system fast_setup be_quiet
    global check_do_clean_compile check_do_3rdparty_build ts_config ts_log_config
    global CHECK_TESTSUITE_TRASH check_do_not_use_spool_config_entries ts_log_levels
-   global WITH_GPERF
    upvar $execute_func_return rpcret
 
    if {[info exists rpcret]} {
@@ -8386,12 +8390,6 @@ for {set i 0} {$i < $argc} {incr i} {
    if {[string compare [lindex $argv $i] "--testsuite_trash"] == 0 || [string compare [lindex $argv $i] "testsuite_trash"] == 0} {
       set CHECK_TESTSUITE_TRASH 1
       puts "using testsuite_trash"
-      continue
-   }
-
-   if {[string compare [lindex $argv $i] "--with_gperf"] == 0 || [string compare [lindex $argv $i] "with_gperf"] == 0} {
-      set WITH_GPERF 1
-      puts "enable compilation with Google Performance Tools (gperftools)"
       continue
    }
 
