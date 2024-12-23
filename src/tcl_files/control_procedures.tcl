@@ -1616,6 +1616,7 @@ proc get_ps_info { { pid 0 } { host "master"} { info_array ps_info } {additional
       "lx2?-*" -
       "ulx24-*" -
       "lx-*" -
+      "xlx-*" -
       "ulx-*" {
          set myenvironment(COLUMNS) "1000"
          set result [start_remote_prog "$host" "$CHECK_USER" "ps" "-weo \"pid pgid ppid uid=BIGGERUID s stime vsz time nice args=COMMANDCOMMANDCOMMANDCOMMANDCOMMAND\"" prg_exit_state 60 0 "" myenvironment 1 0]
